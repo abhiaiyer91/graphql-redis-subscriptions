@@ -19,7 +19,7 @@ const subscriptionManager = new SubscriptionManager({
 });
 ```
 
-__When using graphql-subscriptions above version 0.4.0__
+__When using graphql-subscriptions above version 0.4.0__  
 First create your RedisPubSub instance.
 ```javascript
 import { RedisPubSUb } from 'grpahql-redis-subscriptions';
