@@ -19,6 +19,30 @@ const subscriptionManager = new SubscriptionManager({
 });
 ```
 
+When using graphql-subscriptions above version 0.4.0
+
+First create your RedisPubSub instance.
+```javascript
+import { RedisPubSUb } from 'grpahql-redis-subscriptions';
+export const pubsub = new RedisPubSub();
+```
+
+Next import the pubsub instance and add it to the resolver for a subscription.
+```javascript
+import { pubsub } from './pubsub';
+// schema code
+resolvers = {
+  Query: {/* ... */},
+  Mutation: {/* ... */},
+  Subscription: {
+    commentsAdded: {
+      resolver: comment => comment,
+      subscribe: () => pubsub.asyncIterator("comments.added")
+    }
+  }
+}
+```
+
 ## Using Trigger Transform
 
 Recently, graphql-subscriptions package added a way to pass in options to each call of subscribe.

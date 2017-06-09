@@ -232,3 +232,7 @@ describe('RedisPubSub', function () {
   });
 
 });
+
+describe('RedisAsyncIterator', function() {
+
+});

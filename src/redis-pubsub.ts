@@ -1,6 +1,7 @@
 import {PubSubEngine} from 'graphql-subscriptions/dist/pubsub';
 import {createClient, RedisClient, ClientOpts as RedisOptions} from 'redis';
 import {each} from 'async';
+import { AsyncIterator, RedisAsyncIterator } from './redis-async-iterator';
 
 export interface PubSubRedisOptions {
   connection?: RedisOptions;
@@ -106,6 +107,10 @@ export class RedisPubSub implements PubSubEngine {
       listener(parsedMessage);
       cb();
     });
+  }
+
+  public asyncIterator<T>(triggers: string | string[]): AsyncIterator<T> {
+    return new RedisAsyncIterator<T>(this, triggers);
   }
 
   private triggerTransform: TriggerTransform;
