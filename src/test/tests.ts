@@ -1,6 +1,7 @@
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import {spy, restore} from 'simple-mock';
+import { isAsyncIterable } from 'iterall';
 
 import * as redis from 'redis';
 import {RedisPubSub} from '../redis-pubsub';
@@ -234,5 +235,79 @@ describe('RedisPubSub', function () {
 });
 
 describe('RedisAsyncIterator', function() {
+
+  const pubSub = new RedisPubSub();
+
+  it('should expose valid asyncItrator for a specific event', () => {
+    const eventName = 'test';
+    const ps = new RedisPubSub();
+    const iterator = ps.asyncIterator(eventName);
+    expect(iterator).to.exist
+    expect(isAsyncIterable(iterator)).to.be.true;
+  });
+
+  it('should trigger event on asyncIterator when published', done => {
+    const eventName = 'test';
+    const ps = new RedisPubSub();
+    const iterator = ps.asyncIterator(eventName);
+
+    iterator.next().then(result => {
+      expect(result).to.exist;
+      expect(result.value).to.exist;
+      expect(result.done).to.exist;
+      done();
+    });
+
+    ps.publish(eventName, { test: true });
+  });
+
+  it('should not trigger event on asyncIterator when publishing other event', () => {
+    const eventName = 'test2';
+    const ps = new RedisPubSub();
+    const iterator = ps.asyncIterator('test');
+    const triggerSpy = spy(function() {});
+
+    iterator.next().then(triggerSpy);
+    ps.publish(eventName, { test: true });
+    expect(triggerSpy.callCount).to.equal(0);
+  });
+
+  it('register to multiple events', done => {
+    const eventName = 'test2';
+    const ps = new RedisPubSub();
+    const iterator = ps.asyncIterator(['test', 'test2']);
+    const triggerSpy = spy(function() {});
+
+    iterator.next().then(() => {
+      triggerSpy();
+      expect(triggerSpy.callCount).to.be.gte(1);
+      done();
+    });
+    ps.publish(eventName, { test: true });
+  });
+
+  it('should not trigger event on asyncIterator already returned', done => {
+    const eventName = 'test';
+    const ps = new RedisPubSub();
+    const iterator = ps.asyncIterator(eventName);
+
+    iterator.next().then(result => {
+      expect(result).to.exist;
+      expect(result.value).to.exist;
+      expect(result.done).to.be.false;
+    });
+
+    ps.publish(eventName, { test: true });
+
+    iterator.next().then(result => {
+      expect(result).to.exist;
+      expect(result.value).not.to.exist;
+      expect(result.done).to.be.true;
+      done();
+    });
+
+    iterator.return();
+    ps.publish(eventName, { test: true });
+  });
 
 });

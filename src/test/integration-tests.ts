@@ -1,7 +1,9 @@
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
+import { isAsyncIterable } from 'iterall';
 
 import {
+  parse,
   GraphQLSchema,
   GraphQLObjectType,
   GraphQLString,
@@ -9,6 +11,7 @@ import {
   GraphQLBoolean,
 } from 'graphql';
 
+import { subscribe } from 'graphql/subscription';
 import {SubscriptionManager} from 'graphql-subscriptions';
 import {RedisPubSub} from '../redis-pubsub';
 
@@ -282,5 +285,92 @@ describe('SubscriptionManager', function() {
       setTimeout(() => pubsub.unsubscribe(subId), 4);
     });
 
+  });
+});
+
+// From https://github.com/apollographql/graphql-subscriptions/blob/master/src/test/asyncIteratorSubscription.ts
+import { mock } from 'simple-mock';
+import { withFilter } from '../with-filter';
+const FIRST_EVENT = 'FIRST_EVENT';
+
+function buildSchema(iterator) {
+  return new GraphQLSchema({
+    query: new GraphQLObjectType({
+      name: 'Query',
+      fields: {
+        testString: {
+          type: GraphQLString,
+          resolve: function(_, args) {
+            return 'works';
+          },
+        },
+      },
+    }),
+    subscription: new GraphQLObjectType({
+      name: 'Subscription',
+      fields: {
+        testSubscription: {
+          type: GraphQLString,
+          subscribe: withFilter(
+            () => iterator,
+            () => true,
+          ),
+          resolve: root => {
+            return 'FIRST_EVENT';
+          },
+        },
+      },
+    }),
+  });
+}
+
+describe('GraphQL-JS schema asyncIterator', function() {
+  it('should allow subscriptions', () => {
+    const query = parse(`
+      subscription S1 {
+        testSubscription
+      }
+    `);
+
+    const pubsub = new RedisPubSub();
+    const origIterator = pubsub.asyncIterator(FIRST_EVENT);
+    const schema = buildSchema(origIterator);
+
+    const results = subscribe(schema, query);
+    const payload1 = results.next();
+
+    expect(isAsyncIterable(results)).to.be.true;
+
+    const r = payload1.then(res => {
+      expect(res.value.data.testSubscription).to.equal('FIRST_EVENT');
+    });
+
+    pubsub.publish(FIRST_EVENT, {});
+
+    return r;
+  });
+
+  it('should clear event handlers', () => {
+    const query = parse(`
+      subscription S1 {
+        testSubscription
+      }
+    `);
+
+    const pubsub = new RedisPubSub();
+    const origIterator = pubsub.asyncIterator(FIRST_EVENT);
+    const returnSpy = mock(origIterator, 'return');
+    const schema = buildSchema(origIterator);
+
+    const results = subscribe(schema, query);
+    const end = results.return();
+
+    const r = end.then(res => {
+      expect(returnSpy.callCount).to.be.gte(1);
+    });
+
+    pubsub.publish(FIRST_EVENT, {});
+
+    return r;
   });
 });

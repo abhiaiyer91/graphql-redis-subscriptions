@@ -1,4 +1,4 @@
-import {PubSubEngine} from 'graphql-subscriptions/dist/pubsub';
+import {PubSubEngine} from 'graphql-subscriptions/dist/pubsub-engine';
 import {createClient, RedisClient, ClientOpts as RedisOptions} from 'redis';
 import {each} from 'async';
 import { AsyncIterator, RedisAsyncIterator } from './redis-async-iterator';
